@@ -77,22 +77,34 @@ async function cancelPayment(bookingId) {
             await transaction.commit();
             return true
         }
-         await axios.patch(`${ServerConfig.FLIGHT_SERVICE}/api/v1/flights/${bookingDetails.flightId}/seats`,
+        await axios.patch(`${ServerConfig.FLIGHT_SERVICE}/api/v1/flights/${bookingDetails.flightId}/seats`,
             {
                 seats: bookingDetails.noofSeats,
-                dec:0
+                dec: 0
             }
         );
         await bookingRepository.update(bookingId, { status: CANCELLED }, transaction);
         await transaction.commit();
-        
+
     } catch (error) {
         await transaction.rollback();
         throw error;
     }
 }
 
+async function cancelOldBookings(){
+    try{
+        const time = new Date(Date.now() - 1000 * 60 * 5); // 5 minutes ago
+        const response = await bookingRepository.cancelOldBookings(time);
+        return response;
+    } catch(error){
+        console.log(error);
+    }
+}
+
+
 module.exports = {
     createBooking,
-    makePayment
+    makePayment,
+    cancelOldBookings
 }
