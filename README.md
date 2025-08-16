@@ -1,48 +1,177 @@
-This is a base node js project template, which anyone can use as it has been prepared, by keeping some of the most important code principles and project management recommendations. Feel free to change anything. 
 
 
-`src` -> Inside the src folder all the actual source code regarding the project will reside, this will not include any kind of tests. (You might want to make separate tests folder)
+### MySQL Database for booking:
 
-Lets take a look inside the `src` folder
+<img width="1529" height="473" alt="image" src="https://github.com/user-attachments/assets/901d1593-f160-4205-98b5-923787cac684" />
 
- - `config` -> In this folder anything and everything regarding any configurations or setup of a library or module will be done. For example: setting up `dotenv` so that we can use the environment variables anywhere in a cleaner fashion, this is done in the `server-config.js`. One more example can be to setup you logging library that can help you to prepare meaningful logs, so configuration for this library should also be done here. 
+### MySQL Database for seats:
 
- - `routes` -> In the routes folder, we register a route and the corresponding middleware and controllers to it. 
+<img width="1239" height="514" alt="image" src="https://github.com/user-attachments/assets/e2ff766b-b422-4e89-8c88-001cef3ff719" />
 
- - `middlewares` -> they are just going to intercept the incoming requests where we can write our validators, authenticators etc. 
 
- - `controllers` -> they are kind of the last middlewares as post them you call you business layer to execute the budiness logic. In controllers we just receive the incoming requests and data and then pass it to the business layer, and once business layer returns an output, we structure the API response in controllers and send the output. 
+````markdown
+# Booking & Info API Documentation
 
- - `repositories` -> this folder contains all the logic using which we interact the DB by writing queries, all the raw queries or ORM queries will go here.
+Base URL: `/api/v1`
 
- - `services` -> contains the buiness logic and interacts with repositories for data from the database
+---
 
- - `utils` -> contains helper methods, error classes etc.
+## 1. Service Info
 
-### Setup the project
+**Endpoint:**  
+`GET /api/v1/info`
 
- - Download this template from github and open it in your favourite text editor. 
- - Go inside the folder path and execute the following command:
+**Purpose:**  
+Check if the service is running and fetch basic info about the API.
+
+**Response (200 - OK):**  
+```json
+{
+  "success": true,
+  "message": "API is up and running",
+  "data": {
+    "service": "Flight Booking API",
+    "version": "1.0.0"
+  },
+  "error": {}
+}
+````
+
+---
+
+## 2. Create Booking
+
+**Endpoint:**
+`POST /api/v1/bookings`
+
+**Purpose:**
+Create a booking for a given flight and user.
+
+**Request Payload:**
+
+```json
+{
+  "flightId": 1,
+  "userId": 101,
+  "noofSeats": 2
+}
+```
+
+**Response (200 - OK):**
+
+```json
+{
+  "success": true,
+  "message": "Successfully completed the request",
+  "data": {
+    "id": 5001,
+    "flightId": 1,
+    "userId": 101,
+    "noofSeats": 2,
+    "status": "BOOKED",
+    "totalCost": 200,
+    "createdAt": "2025-08-16T12:45:00.000Z"
+  },
+  "error": {}
+}
+```
+
+**Response (500 - Server Error):**
+
+```json
+{
+  "success": false,
+  "message": "Something went wrong",
+  "data": {},
+  "error": {
+    "statusCode": 500,
+    "explanation": "Could not process booking"
+  }
+}
+```
+
+---
+
+## 3. Make Payment
+
+**Endpoint:**
+`POST /api/v1/bookings/payments`
+
+**Headers Required:**
+
+* `x-idempotency-key: <unique-key>` (Prevents duplicate payment requests)
+
+**Purpose:**
+Process a payment for a booking.
+
+**Request Payload:**
+
+```json
+{
+  "totalCost": 200,
+  "userId": 101,
+  "bookingId": 5001
+}
+```
+
+**Response (200 - OK):**
+
+```json
+{
+  "success": true,
+  "message": "Payment successful",
+  "data": {
+    "paymentId": 9001,
+    "bookingId": 5001,
+    "amount": 200,
+    "status": "PAID",
+    "createdAt": "2025-08-16T12:50:00.000Z"
+  },
+  "error": {}
+}
+```
+
+**Response (400 - Missing Idempotency Key):**
+
+```json
+{
+  "message": "Idempotency key is required"
+}
+```
+
+**Response (400 - Duplicate Request):**
+
+```json
+{
+  "message": "Cant process the same request twice"
+}
+```
+
+---
+
+## Notes
+
+* **Idempotency Handling:**
+
+  * Payments require `x-idempotency-key` in headers.
+  * If the same key is reused, the request will be rejected to prevent double-charging.
+
+* **Booking Lifecycle:**
+
+  * `BOOKED` → Created booking (before payment)
+  * `PAID` → Payment successful
+
+* Response structure remains consistent:
+
+  ```json
+  {
+    "success": boolean,
+    "message": string,
+    "data": object | {},
+    "error": object | {}
+  }
   ```
-  npm install
-  ```
- - In the root directory create a `.env` file and add the following env variables
-    ```
-        PORT=<port number of your choice>
-    ```
-    ex: 
-    ```
-        PORT=3000
-    ```
- - go inside the `src` folder and execute the following command:
-    ```
-      npx sequelize init
-    ```
- - By executing the above command you will get migrations and seeders folder along with a config.json inside the config folder. 
- - If you're setting up your development environment, then write the username of your db, password of your db and in dialect mention whatever db you are using for ex: mysql, mariadb etc
- - If you're setting up test or prod environment, make sure you also replace the host with the hosted db url.
 
- - To run the server execute
- ```
- npm run dev
- ```
+
+
+
