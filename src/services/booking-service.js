@@ -43,31 +43,35 @@ async function makePayment(data) {
     const transaction = await db.sequelize.transaction();
     try {
         const bookingDetails = await bookingRepository.get(data.bookingId, transaction);
+
         if (bookingDetails.status == CANCELLED) {
             throw new AppError("The booking has been cancelled", StatusCodes.BAD_REQUEST);
         }
+
         const bookingTime = new Date(bookingDetails.createdAt);
         const currentTime = new Date();
+        const timeDiff = currentTime - bookingTime;
 
-        if (currentTime - bookingTime > 300000) {
+        if (timeDiff > 300000) {
             await cancelPayment(data.bookingId);
             throw new AppError("The booking has expired", StatusCodes.BAD_REQUEST);
         }
+
         if (bookingDetails.totalCost != data.totalCost) {
             throw new AppError("The amount of the payment does not match", StatusCodes.BAD_REQUEST);
         }
         if (bookingDetails.userId != data.userId) {
             throw new AppError("The user does not match", StatusCodes.BAD_REQUEST);
         }
-        // we assume here that payment is successful
+
         await bookingRepository.update(data.bookingId, { status: BOOKED }, transaction);
         await transaction.commit();
+
     } catch (error) {
         await transaction.rollback();
         throw error;
     }
 }
-
 
 async function cancelPayment(bookingId) {
     const transaction = await db.sequelize.transaction();
@@ -92,12 +96,12 @@ async function cancelPayment(bookingId) {
     }
 }
 
-async function cancelOldBookings(){
-    try{
+async function cancelOldBookings() {
+    try {
         const time = new Date(Date.now() - 1000 * 60 * 5); // 5 minutes ago
         const response = await bookingRepository.cancelOldBookings(time);
         return response;
-    } catch(error){
+    } catch (error) {
         console.log(error);
     }
 }
