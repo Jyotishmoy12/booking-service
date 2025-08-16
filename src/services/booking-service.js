@@ -4,8 +4,8 @@ const db = require("../models");
 const { ServerConfig } = require("../config");
 const AppError = require('../utils/errors/app-error');
 const { StatusCodes } = require('http-status-codes');
-const {Enums} = require('../utils/common');
-const { BOOKED, CANCELLED} = Enums.BOOKING_STATUS;
+const { Enums } = require('../utils/common');
+const { BOOKED, CANCELLED } = Enums.BOOKING_STATUS;
 
 const bookingRepository = new BookingRepository();
 async function createBooking(data) {
@@ -42,26 +42,50 @@ async function createBooking(data) {
 async function makePayment(data) {
     const transaction = await db.sequelize.transaction();
     try {
-        const bookingDetails = await bookingRepository.get(data.bookingId,transaction);
-        if(bookingDetails.status == CANCELLED){
+        const bookingDetails = await bookingRepository.get(data.bookingId, transaction);
+        if (bookingDetails.status == CANCELLED) {
             throw new AppError("The booking has been cancelled", StatusCodes.BAD_REQUEST);
         }
         const bookingTime = new Date(bookingDetails.createdAt);
         const currentTime = new Date();
 
-        if(currentTime - bookingTime > 300000){
-            await bookingRepository.update(data.bookingId, { status: CANCELLED }, transaction);
+        if (currentTime - bookingTime > 300000) {
+            await cancelPayment(data.bookingId);
             throw new AppError("The booking has expired", StatusCodes.BAD_REQUEST);
         }
         if (bookingDetails.totalCost != data.totalCost) {
             throw new AppError("The amount of the payment does not match", StatusCodes.BAD_REQUEST);
         }
-        if(bookingDetails.userId != data.userId){
+        if (bookingDetails.userId != data.userId) {
             throw new AppError("The user does not match", StatusCodes.BAD_REQUEST);
         }
         // we assume here that payment is successful
         await bookingRepository.update(data.bookingId, { status: BOOKED }, transaction);
         await transaction.commit();
+    } catch (error) {
+        await transaction.rollback();
+        throw error;
+    }
+}
+
+
+async function cancelPayment(bookingId) {
+    const transaction = await db.sequelize.transaction();
+    try {
+        const bookingDetails = await bookingRepository.get(bookingId, transaction);
+        if (bookingDetails.status == CANCELLED) {
+            await transaction.commit();
+            return true
+        }
+         await axios.patch(`${ServerConfig.FLIGHT_SERVICE}/api/v1/flights/${bookingDetails.flightId}/seats`,
+            {
+                seats: bookingDetails.noofSeats,
+                dec:0
+            }
+        );
+        await bookingRepository.update(bookingId, { status: CANCELLED }, transaction);
+        await transaction.commit();
+        
     } catch (error) {
         await transaction.rollback();
         throw error;
